@@ -702,6 +702,31 @@ describe('parse', function () {
         });
     });
 
+    it('param multiple lines intersection', function () {
+        var res = doctrine.parse(
+            [
+                "/**",
+                " * @param {string&",
+                " *     number} userName",
+                " * }}",
+                "*/"
+            ].join('\n'), { unwrap: true });
+        res.tags.should.have.length(1);
+        res.tags[0].should.have.property('title', 'param');
+        res.tags[0].should.have.property('name', 'userName');
+        res.tags[0].should.have.property('type');
+        res.tags[0].type.should.eql({
+            type: 'IntersectionType',
+            elements: [{
+                type: 'NameExpression',
+                name: 'string'
+            }, {
+                type: 'NameExpression',
+                name: 'number'
+            }]
+        });
+    });
+
     it('param without braces', function () {
         var res = doctrine.parse(
             [
@@ -1226,6 +1251,21 @@ describe('parse', function () {
         res.tags[0].type.elements.should.containEql({type: 'NameExpression', name: 'FooBar'});
     });
 
+    it('this with IntersectionType expression', function () {
+        var res = doctrine.parse(
+            [
+              "/**",
+              " * @this {thingName.name&FooBar}",
+              "*/"
+            ].join('\n'), { unwrap: true });
+        res.tags.should.have.length(1);
+        res.tags[0].should.have.property('title', 'this');
+        res.tags[0].type.should.have.property('type', 'IntersectionType');
+        res.tags[0].type.elements.should.have.length(2);
+        res.tags[0].type.elements.should.containEql({type: 'NameExpression', name: 'thingName.name'});
+        res.tags[0].type.elements.should.containEql({type: 'NameExpression', name: 'FooBar'});
+    });
+
     it('this error with type application', function () {
         var res = doctrine.parse(
             [
@@ -1383,6 +1423,37 @@ describe('parse', function () {
         e1.fields.should.containEql({type: 'FieldType', key: 'error',
           value: {type: 'NameExpression', name: 'Error'}});
     });
+
+    it('complex intersection with literal types', function () {
+        var res = doctrine.parse(
+            [
+                "/**",
+                " * @typedef {({ok: true, data: string} & {ok: false, error: Error})} Result",
+                "*/"
+            ].join('\n'), { unwrap: true });
+
+        res.tags.should.have.length(1);
+        res.tags[0].should.have.property('title', 'typedef');
+        res.tags[0].should.have.property('name', 'Result');
+        res.tags[0].type.should.have.property('type', 'IntersectionType');
+        res.tags[0].type.elements.should.have.length(2);
+
+        var e0 = res.tags[0].type.elements[0];
+        e0.should.have.property('type', 'RecordType');
+        e0.fields.should.have.length(2);
+        e0.fields.should.containEql({type: 'FieldType', key: 'ok',
+          value: {type: 'BooleanLiteralType', value: true}});
+        e0.fields.should.containEql({type: 'FieldType', key: 'data',
+          value: {type: 'NameExpression', name: 'string'}});
+
+        var e1 = res.tags[0].type.elements[1];
+        e1.should.have.property('type', 'RecordType');
+        e1.fields.should.have.length(2);
+        e1.fields.should.containEql({type: 'FieldType', key: 'ok',
+          value: {type: 'BooleanLiteralType', value: false}});
+        e1.fields.should.containEql({type: 'FieldType', key: 'error',
+          value: {type: 'NameExpression', name: 'Error'}});
+    });
 });
 
 describe('parseType', function () {
@@ -1390,6 +1461,23 @@ describe('parseType', function () {
         var type = doctrine.parseType("string|number", {range: true});
         type.should.eql({
             type: 'UnionType',
+            elements: [{
+                type: 'NameExpression',
+                name: 'string',
+                range: [0, 6]
+            }, {
+                type: 'NameExpression',
+                name: 'number',
+                range: [7, 13]
+            }],
+            range: [0, 13]
+        });
+    });
+
+    it('intersection type closure-compiler extended', function () {
+        var type = doctrine.parseType("string&number", {range: true});
+        type.should.eql({
+            type: 'IntersectionType',
             elements: [{
                 type: 'NameExpression',
                 name: 'string',
@@ -1976,6 +2064,32 @@ describe('parseType', function () {
         });
     });
 
+    it ('toplevel multiple ampersand type', function () {
+        var type;
+        type = doctrine.parseType("string&number&Test", {range: true});
+        type.should.eql({
+            "elements": [
+                {
+                    "name": "string",
+                    "type": "NameExpression",
+                    range: [0, 6]
+                },
+                {
+                    "name": "number",
+                    "type": "NameExpression",
+                    range: [7, 13]
+                },
+                {
+                    "name": "Test",
+                    "type": "NameExpression",
+                    range: [14, 18]
+                }
+            ],
+            "type": "IntersectionType",
+            range: [0, 18]
+        });
+    });
+
     it('string literal type', function () {
         var type;
         type = doctrine.parseType('"Hello, World"', {range: true});
@@ -2085,6 +2199,27 @@ describe('parseParamType', function () {
         var type = doctrine.parseParamType("function(): ?|number", {range: true});
         type.should.eql({
             type: 'UnionType',
+            elements: [{
+                type: 'FunctionType',
+                params: [],
+                result: {
+                    type: 'NullableLiteral',
+                    range: [12, 13]
+                },
+                range: [0, 13]
+            }, {
+                type: 'NameExpression',
+                name: 'number',
+                range: [14, 20]
+            }],
+            range: [0, 20]
+        });
+    });
+
+    it('function type intersection', function () {
+        var type = doctrine.parseParamType("function(): ?&number", {range: true});
+        type.should.eql({
+            type: 'IntersectionType',
             elements: [{
                 type: 'FunctionType',
                 params: [],
@@ -3022,6 +3157,7 @@ describe('exported Syntax', function() {
             UndefinedLiteral: 'UndefinedLiteral',
             VoidLiteral: 'VoidLiteral',
             UnionType: 'UnionType',
+            IntersectionType: 'IntersectionType',
             ArrayType: 'ArrayType',
             BooleanLiteralType: 'BooleanLiteralType',
             RecordType: 'RecordType',
