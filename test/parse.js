@@ -1820,6 +1820,203 @@ describe('parseType', function () {
         });
     });
 
+    it('arrow function type simple', function () {
+        var type = doctrine.parseType("() => ()", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [],
+            "result": null,
+            range: [0, 8]
+        });
+    });
+
+    it('arrow function type with name', function () {
+        var type = doctrine.parseType("(a) => ()", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "NameExpression",
+                    "name": "a",
+                    range: [1, 2]
+                }
+            ],
+            "result": null,
+            range: [0, 9]
+        });
+    });
+
+    it('arrow function type with name and type', function () {
+        var type = doctrine.parseType("(a:b) => ()", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "ParameterType",
+                    "name": "a",
+                    "expression": {
+                        "type": "NameExpression",
+                        "name": "b",
+                        range: [3, 4]
+                    },
+                    range: [1, 4]
+                }
+            ],
+            "result": null,
+            range: [0, 11]
+        });
+    });
+    it('arrow function type with optional param', function () {
+        var type = doctrine.parseType("(a=) => ()", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "OptionalType",
+                    "expression": {
+                        "type": "NameExpression",
+                        "name": "a",
+                        range: [1, 2]
+                    },
+                    range: [1, 3]
+                }
+            ],
+            "result": null,
+            range: [0, 10]
+        });
+    });
+    it('arrow function type with optional param name and type', function () {
+        var type = doctrine.parseType("(a:b=) => void", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "OptionalType",
+                    "expression": {
+                        "type": "ParameterType",
+                        "name": "a",
+                        "expression": {
+                            "type": "NameExpression",
+                            "name": "b",
+                            range: [3, 4]
+                        },
+                        range: [1, 4]
+                    },
+                    range: [1, 5]
+                }
+            ],
+            "result": {
+                type: 'VoidLiteral'
+            },
+            range: [0, 14]
+        });
+    });
+    it('arrow function type with rest param', function () {
+        var type = doctrine.parseType("(...a) => void", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "RestType",
+                    "expression": {
+                        "type": "NameExpression",
+                        "name": "a",
+                        range: [4, 5]
+                    },
+                    range: [1, 5]
+                }
+            ],
+            "result": {
+                type: 'VoidLiteral'
+            },
+            range: [0, 14]
+        });
+    });
+    it('arrow function type with rest param name and type', function () {
+        var type = doctrine.parseType("(...a:b) => void", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "RestType",
+                    "expression": {
+                        "type": "ParameterType",
+                        "name": "a",
+                        "expression": {
+                            "type": "NameExpression",
+                            "name": "b",
+                            range: [6, 7]
+                        },
+                        range: [4, 7]
+                    },
+                    range: [1, 7]
+                }
+            ],
+            "result": {
+                type: 'VoidLiteral'
+            },
+            range: [0, 16]
+        });
+    });
+
+    it('arrow function type with optional rest param', function () {
+        var type = doctrine.parseType("(...a=) => void", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "RestType",
+                    "expression": {
+                        "type": "OptionalType",
+                        "expression": {
+                            "type": "NameExpression",
+                            "name": "a",
+                            range: [4, 5]
+                        },
+                        range: [4, 6]
+                    },
+                    range: [1, 6]
+                }
+            ],
+            "result": {
+                type: 'VoidLiteral'
+            },
+            range: [0, 15]
+        });
+    });
+    it('arrow function type with optional rest param name and type', function () {
+        var type = doctrine.parseType("(...a:b=) => boolean", {range: true});
+        type.should.eql({
+            "type": "ArrowFunctionType",
+            "params": [
+                {
+                    "type": "RestType",
+                    "expression": {
+                        "type": "OptionalType",
+                        "expression": {
+                            "type": "ParameterType",
+                            "name": "a",
+                            "expression": {
+                                "type": "NameExpression",
+                                "name": "b",
+                                range: [6, 7]
+                            },
+                            range: [4, 7]
+                        },
+                        range: [4, 8]
+                    },
+                    range: [1, 8]
+                }
+            ],
+            "result": {
+                type: 'NameExpression',
+                name: 'boolean',
+                range: [13, 20]
+            },
+            range: [0, 20]
+        });
+    });
+
     it('string value in type', function () {
         var type;
 
@@ -3163,6 +3360,7 @@ describe('exported Syntax', function() {
             RecordType: 'RecordType',
             FieldType: 'FieldType',
             FunctionType: 'FunctionType',
+            ArrowFunctionType: 'ArrowFunctionType',
             ParameterType: 'ParameterType',
             RestType: 'RestType',
             NonNullableType: 'NonNullableType',
